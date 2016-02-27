@@ -16,6 +16,7 @@ import Queue
 import logging
 import fcntl
 import os
+import signal
 import argparse
 
 # Add usage and arguments for our options
@@ -70,6 +71,11 @@ fh = logging.FileHandler(args.log)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
+# Catch the Keyboard Interrupt
+def signal_handler(signal, frame):
+    logger.warn('caught Ctrl+C.  Terminating.')
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
 
 # Create a TCP/IP socket
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
