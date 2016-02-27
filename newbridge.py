@@ -16,6 +16,35 @@ import Queue
 import logging
 import fcntl
 import os
+import argparse
+
+# Add usage and arguments for our options
+parser = argparse.ArgumentParser(description='New Bridge for Arduino Yún')
+
+parser.add_argument(
+    '-q', '--quiet',
+    action='store_true',
+    help='suppress non error messages',
+    default=False)
+
+parser.add_argument(
+    '-d', '--debug',
+    action='store_true',
+    help='print debug to stderr',
+    default=False)
+
+parser.add_argument(
+    '-P', '--port',
+    type=int,
+    help='local TCP port to listen on (default: 6571)',
+    default=6571)
+
+parser.add_argument(
+    '-l', '--log',
+    help='file to log to (default: log.log)',
+    default='log.log')
+
+args = parser.parse_args()
 
 # make stdin a non-blocking file
 fd = sys.stdin.fileno()
@@ -28,11 +57,16 @@ formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s', "%Y-%m-
 logger.setLevel(logging.DEBUG)
 
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+if args.quiet:
+    ch.setLevel(logging.ERROR)
+elif args.debug:
+    ch.setLevel(logging.DEBUG)
+else:
+    ch.setLevel(logging.WARN)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-fh = logging.FileHandler('log.log')
+fh = logging.FileHandler(args.log)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
@@ -43,7 +77,7 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.setblocking(0)
 
 # Bind the socket to the port
-server_address = ('', 6571)
+server_address = ('', args.port)
 logger.warn('starting up on %s port %s' % server_address)
 server.bind(server_address)
 
