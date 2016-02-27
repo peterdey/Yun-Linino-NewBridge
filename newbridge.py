@@ -18,6 +18,7 @@ import fcntl
 import os
 import signal
 import argparse
+import queuehandler
 
 # Add usage and arguments for our options
 parser = argparse.ArgumentParser(description='New Bridge for Arduino Yún')
@@ -25,13 +26,13 @@ parser = argparse.ArgumentParser(description='New Bridge for Arduino Yún')
 parser.add_argument(
     '-q', '--quiet',
     action='store_true',
-    help='suppress non error messages',
+    help="don't print anything to the console",
     default=False)
 
 parser.add_argument(
     '-d', '--debug',
     action='store_true',
-    help='print debug to stderr',
+    help='increase logging level (both to console and logfile)',
     default=False)
 
 parser.add_argument(
@@ -55,25 +56,31 @@ fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 # Set up logging
 logger = logging.getLogger()
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s', "%Y-%m-%d %H:%M:%S")
-logger.setLevel(logging.DEBUG)
 
-ch = logging.StreamHandler()
-if args.quiet:
-    ch.setLevel(logging.ERROR)
-elif args.debug:
-    ch.setLevel(logging.DEBUG)
+if args.debug:
+    logger.setLevel(logging.DEBUG)
 else:
-    ch.setLevel(logging.WARN)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+    logger.setLevel(logging.INFO)
 
+q = Queue.Queue(-1)
+qh = queuehandler.QueueHandler(q)
 fh = logging.FileHandler(args.log)
+ql = queuehandler.QueueListener(q, fh)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
-logger.addHandler(fh)
+logger.addHandler(qh)
+ql.start()
+
+# Don't send anything to the console if we're asked to be quiet
+if not args.quiet:
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
 # Catch the Keyboard Interrupt
 def signal_handler(signal, frame):
     logger.warn('caught Ctrl+C.  Terminating.')
+    ql.stop()
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -84,7 +91,7 @@ server.setblocking(0)
 
 # Bind the socket to the port
 server_address = ('', args.port)
-logger.warn('starting up on %s port %s' % server_address)
+logger.warn('pid %s starting up on port %s', os.getpid(), server_address)
 server.bind(server_address)
 
 # Listen for incoming connections
@@ -124,7 +131,7 @@ while inputs:
         elif s is sys.stdin:
             # Relay data from stdin to all clients
             data = sys.stdin.read(1024)
-            logger.info('sys.stdin: %s', data)
+            logger.info('sys.stdin: %s', data.strip())
             if '\x04' in data:
                 logger.warn('got Ctrl+D.  Terminating.')
                 raise KeyboardInterrupt
@@ -140,7 +147,7 @@ while inputs:
             if data:
                 # A readable client socket has data
                 # Relay data from any client to stdout
-                logger.info('%s: %s' % (s.getpeername(), data))
+                logger.info('%s: %s', s.getpeername(), data.strip())
                 message_queues[sys.stdout].put(data)
                 if sys.stdout not in outputs:
                     outputs.append(sys.stdout)
