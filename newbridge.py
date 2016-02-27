@@ -12,6 +12,13 @@ import socket
 import sys
 import Queue
 import logging
+import fcntl
+import os
+
+# make stdin a non-blocking file
+fd = sys.stdin.fileno()
+fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
 # Set up logging
 logger = logging.getLogger()
@@ -41,7 +48,7 @@ server.bind(server_address)
 server.listen(5)
 
 # Sockets from which we expect to read
-inputs = [ server ]
+inputs = [ sys.stdin, server ]
 
 # Sockets to which we expect to write
 outputs = [ ]
@@ -67,7 +74,14 @@ while inputs:
 
             # Give the connection a queue for data we want to send
             message_queues[connection] = Queue.Queue()
-
+        
+        elif s is sys.stdin:
+            data = sys.stdin.read(1024)
+            logger.debug('got %s from stdin', data)
+            if '\x04' in data:
+                logger.warn('got Ctrl+D.  Terminating.')
+                raise KeyboardInterrupt
+        
         else:
             data = s.recv(1024)
             if data:
