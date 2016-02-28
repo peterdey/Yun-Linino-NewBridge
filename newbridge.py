@@ -19,6 +19,7 @@ import os
 import signal
 import argparse
 import queuehandler
+import mysensors
 
 # Add usage and arguments for our options
 parser = argparse.ArgumentParser(description='New Bridge for Arduino Yún')
@@ -76,6 +77,10 @@ if not args.quiet:
     ch = logging.StreamHandler()
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+
+# MySensors message broker
+ms = mysensors.MySensors(logger)
+ms.addListener(mysensors.CollectdListener(logger))
 
 # Catch the Keyboard Interrupt
 def signal_handler(signal, frame):
@@ -140,7 +145,10 @@ while inputs:
                     message_queues[client].put(data)
                     # Add output channel for response
                     if s not in outputs:
-                        outputs.append(client)        
+                        outputs.append(client)
+            
+            # Dispatch telemetry to MySensors broker
+            ms.newdata(data)
         
         else:
             data = s.recv(1024)
