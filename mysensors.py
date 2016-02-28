@@ -33,12 +33,16 @@ class MySensors():
                  listener.process(line)
             
     def addListener (self, listener):
+        listener._setLogger(self.logger)
         self.listeners.append(listener)
         
 class Listener():
     __metaclass__ = ABCMeta
     
-    def __init__(self, logger):
+    def __init__(self):
+        self.logger = None
+    
+    def _setLogger(self, logger):
         self.logger = logger
     
     @abstractmethod
@@ -92,7 +96,7 @@ if __name__ == '__main__':
     logger.addHandler(fh)
     
     ms = MySensors(logger)
-    ms.addListener(CollectdListener(logger))
+    ms.addListener(CollectdListener())
     
     ms.newdata("1;255;3;0;9;Awake.\n")
     ms.newdata("1;255;3;0;0;93\n1;4;1;0;0;29.2\n")
