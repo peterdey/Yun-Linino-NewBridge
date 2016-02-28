@@ -19,6 +19,8 @@ import os
 import signal
 import argparse
 import queuehandler
+import termios
+import atexit
 
 # Add usage and arguments for our options
 parser = argparse.ArgumentParser(description='New Bridge for Arduino Yún')
@@ -47,6 +49,21 @@ parser.add_argument(
     default='log.log')
 
 args = parser.parse_args()
+
+# Function to enable/disable local terminal echo.
+def enable_echo(fd, enabled):
+       (iflag, oflag, cflag, lflag, ispeed, ospeed, cc) \
+                     = termios.tcgetattr(fd)
+       if enabled:
+               lflag |= termios.ECHO
+       else:
+               lflag &= ~termios.ECHO
+       new_attr = [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]
+       termios.tcsetattr(fd, termios.TCSANOW, new_attr)
+
+# disable terminal echo
+enable_echo(sys.stdin.fileno(), False)
+atexit.register(enable_echo, sys.stdin.fileno(), True)
 
 # make stdin a non-blocking file
 fd = sys.stdin.fileno()
