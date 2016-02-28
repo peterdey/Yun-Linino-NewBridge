@@ -14,6 +14,7 @@ import socket
 import sys
 import Queue
 import logging
+import logging.handlers
 import fcntl
 import os
 import signal
@@ -45,8 +46,7 @@ parser.add_argument(
 
 parser.add_argument(
     '-l', '--log',
-    help='file to log to (default: log.log)',
-    default='log.log')
+    help='file to log debugging to')
 
 args = parser.parse_args()
 
@@ -79,14 +79,16 @@ if args.debug:
 else:
     logger.setLevel(logging.INFO)
 
-q = Queue.Queue(-1)
-qh = queuehandler.QueueHandler(q)
-fh = logging.FileHandler(args.log)
-ql = queuehandler.QueueListener(q, fh)
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(formatter)
-logger.addHandler(qh)
-ql.start()
+# Send logging to the specified logfile, if specified
+if args.log is not None:
+    q = Queue.Queue(-1)
+    qh = queuehandler.QueueHandler(q)
+    fh = logging.FileHandler(args.log)
+    ql = queuehandler.QueueListener(q, fh)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(qh)
+    ql.start()
 
 # Don't send anything to the console if we're asked to be quiet
 if not args.quiet:
@@ -94,10 +96,17 @@ if not args.quiet:
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
+sl = logging.handlers.SysLogHandler(address='/dev/log')
+slf = logging.Formatter('%(filename)s[%(process)d]: %(message)s')
+sl.setFormatter(slf)
+sl.setLevel(logging.WARNING)
+logger.addHandler(sl)
+
 # Catch the Keyboard Interrupt
 def signal_handler(signal, frame):
     logger.warn('caught Ctrl+C.  Terminating.')
-    ql.stop()
+    if 'ql' in globals():
+        ql.stop()
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
