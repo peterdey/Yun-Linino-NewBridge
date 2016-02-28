@@ -105,7 +105,8 @@ logger.addHandler(sl)
 
 # MySensors message broker
 ms = mysensors.MySensors(logger)
-ms.addListener(mysensors.CollectdListener(logger))
+ms.addListener(mysensors.CollectdListener())
+ms.addListener(mysensors.TraceLogListener())
 
 # Catch the Keyboard Interrupt
 def signal_handler(signal, frame):

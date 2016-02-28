@@ -87,6 +87,16 @@ class CollectdListener(Listener):
         
         fcntl.lockf(fp, fcntl.LOCK_UN)
 
+class TraceLogListener(Listener):
+    
+    def process(self, line):
+        _splitresponse = line.split(";", 5)
+        n, c, m, a, s, p = _splitresponse
+        if not (int(c)==255 and int(m)==3 and int(a)==0 and int(s)==9):
+            return
+        
+        self.logger.warn("Node %s: %s", n, p)
+
 if __name__ == '__main__':
     logger = logging.getLogger()
     formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s', "%Y-%m-%d %H:%M:%S")
@@ -97,6 +107,7 @@ if __name__ == '__main__':
     
     ms = MySensors(logger)
     ms.addListener(CollectdListener())
+    ms.addListener(TraceLogListener())
     
     ms.newdata("1;255;3;0;9;Awake.\n")
     ms.newdata("1;255;3;0;0;93\n1;4;1;0;0;29.2\n")
