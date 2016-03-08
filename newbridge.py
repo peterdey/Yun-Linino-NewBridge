@@ -163,7 +163,7 @@ while inputs:
         elif s is sys.stdin:
             # Relay data from stdin to all clients
             data = sys.stdin.read(1024)
-            logger.info('sys.stdin: %s', data.strip())
+            logger.debug('sys.stdin: %s', data.strip())
             if '\x04' in data:
                 logger.warn('got Ctrl+D.  Terminating.')
                 raise KeyboardInterrupt
@@ -182,7 +182,7 @@ while inputs:
             if data:
                 # A readable client socket has data
                 # Relay data from any client to stdout
-                logger.info('%s: %s', s.getpeername(), data.strip())
+                logger.debug('%s: %s', s.getpeername(), data.strip())
                 message_queues[sys.stdout].put(data)
                 if sys.stdout not in outputs:
                     outputs.append(sys.stdout)
